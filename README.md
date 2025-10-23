@@ -43,16 +43,33 @@ Bot tự động theo dõi tín hiệu AlphaTrend cho BTC/USDT và gửi thông 
 - ✅ Gửi thông báo Discord khi có tín hiệu BUY/SELL
 - ✅ Chạy 24/7 trên Render Free tier
 - ✅ Tránh spam - chỉ thông báo khi tín hiệu thay đổi
-- ✅ Web interface để kiểm tra trạng thái
+- ✅ **Dashboard web đẹp mắt** với:
+  - 📈 **Biểu đồ giá BTC/USDT real-time** (Chart.js)
+  - 📊 **Thống kê chi tiết**: Tổng tín hiệu, Win Rate, Buy/Sell count
+  - 💰 **Lợi nhuận ước tính** nếu trade theo bot
+  - 📜 **Lịch sử tín hiệu** với P/L từng lệnh
+  - 🔄 **Auto-refresh** mỗi 30 giây
+  - 📱 **Responsive design** - đẹp trên mọi thiết bị
 
-## 🌐 API Endpoints
+## 🌐 Web Interface & API
 
-Sau khi deploy, bạn có thể truy cập các endpoint sau:
+### Dashboard
+- **`GET /`** - Dashboard web với giao diện đẹp, hiển thị:
+  - Biểu đồ giá BTC/USDT
+  - Thống kê bot (Win Rate, Total Signals, P/L)
+  - Lịch sử tín hiệu chi tiết
+  - Trạng thái bot real-time
 
-- **`GET /`** - Trang chủ với thông tin bot và trạng thái hiện tại
+### API Endpoints
+
+- **`GET /health`** - Health check
+  ```json
+  {"status": "ok"}
+  ```
+
+- **`GET /api/status`** - Trạng thái bot
   ```json
   {
-    "name": "BTC/USDT AlphaTrend Bot",
     "status": "running",
     "symbol": "BTCUSDT",
     "interval": "15m",
@@ -62,18 +79,31 @@ Sau khi deploy, bạn có thể truy cập các endpoint sau:
   }
   ```
 
-- **`GET /health`** - Health check endpoint
-  ```json
-  {"status": "ok"}
-  ```
-
-- **`GET /status`** - Chi tiết trạng thái bot
+- **`GET /api/history`** - Lịch sử tín hiệu
   ```json
   {
-    "status": "running",
-    "last_check": "2025-10-23 15:30:00",
-    "last_signal": "BUY",
-    "current_price": 109699.62
+    "signals": [
+      {
+        "timestamp": "2025-10-23 15:30:00",
+        "signal": "BUY",
+        "price": 109500.00,
+        "profit": null
+      },
+      {
+        "timestamp": "2025-10-23 16:00:00",
+        "signal": "SELL",
+        "price": 110000.00,
+        "profit": 0.46
+      }
+    ]
+  }
+  ```
+
+- **`GET /api/chart`** - Dữ liệu chart (50 điểm gần nhất)
+  ```json
+  {
+    "labels": ["2025-10-23 15:00:00", "2025-10-23 15:01:00", ...],
+    "prices": [109500.00, 109520.00, ...]
   }
   ```
 

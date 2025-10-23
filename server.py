@@ -3,7 +3,7 @@ import requests
 import numpy as np
 import os
 from datetime import datetime
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template
 from threading import Thread
 
 # ====== CONFIG ======
@@ -23,6 +23,11 @@ bot_status = {
     "last_signal": None,
     "current_price": None
 }
+
+# Lưu lịch sử tín hiệu và giá
+signal_history = []  # [{timestamp, signal, price, profit}]
+price_history = []   # [{timestamp, price}]
+max_history = 100    # Giữ tối đa 100 records
 
 # ====== LẤY DỮ LIỆU TỪ BINANCE ======
 def get_binance_data(symbol="BTCUSDT", interval="15m", limit=500):
@@ -89,8 +94,15 @@ def send_discord_alert(signal_type, price):
 # ====== FLASK ROUTES ======
 @app.route('/')
 def home():
+    return render_template('index.html')
+
+@app.route('/health')
+def health():
+    return jsonify({"status": "ok"}), 200
+
+@app.route('/api/status')
+def api_status():
     return jsonify({
-        "name": "BTC/USDT AlphaTrend Bot",
         "status": bot_status["status"],
         "symbol": SYMBOL,
         "interval": INTERVAL,
@@ -99,18 +111,30 @@ def home():
         "current_price": bot_status["current_price"]
     })
 
-@app.route('/health')
-def health():
-    return jsonify({"status": "ok"}), 200
+@app.route('/api/history')
+def api_history():
+    return jsonify({
+        "signals": signal_history
+    })
 
-@app.route('/status')
-def status():
-    return jsonify(bot_status)
+@app.route('/api/chart')
+def api_chart():
+    # Lấy 50 giá gần nhất từ price_history
+    recent_prices = price_history[-50:] if len(price_history) > 0 else []
+    
+    labels = [p["timestamp"] for p in recent_prices]
+    prices = [p["price"] for p in recent_prices]
+    
+    return jsonify({
+        "labels": labels,
+        "prices": prices
+    })
 
 # ====== BOT LOOP ======
 def run_bot():
-    global bot_status
+    global bot_status, signal_history, price_history
     last_signal = None
+    last_entry_price = None
     
     print(f"🚀 Bot AlphaTrend đã khởi động!")
     print(f"📈 Symbol: {SYMBOL}")
@@ -122,27 +146,61 @@ def run_bot():
 
     while True:
         try:
-            print(f"⏰ Kiểm tra tín hiệu lúc {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            print(f"⏰ Kiểm tra tín hiệu lúc {timestamp}")
             
             data = get_binance_data(SYMBOL, INTERVAL)
             data = alpha_trend(data, ALPHA_LENGTH, SMOOTH)
 
             current_trend = data['trend'][-1]
-            current_price = data['close'][-1]
+            current_price = float(data['close'][-1])
             
             signal = "BUY" if current_trend == 1 else "SELL" if current_trend == -1 else None
             
+            # Lưu giá vào history
+            price_history.append({
+                "timestamp": timestamp,
+                "price": current_price
+            })
+            if len(price_history) > max_history:
+                price_history.pop(0)
+            
             # Cập nhật status
-            bot_status["last_check"] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            bot_status["current_price"] = float(current_price)
+            bot_status["last_check"] = timestamp
+            bot_status["current_price"] = current_price
             bot_status["status"] = "running"
             
             print(f"📊 Giá hiện tại: ${current_price:,.2f} | Tín hiệu: {signal}")
 
             if signal and signal != last_signal:
                 print(f"🔔 Phát hiện tín hiệu mới: {signal}")
+                
+                # Tính profit nếu có lệnh trước
+                profit = None
+                if last_signal and last_entry_price:
+                    if last_signal == "BUY":
+                        # Đã BUY trước đó, giờ SELL -> tính profit
+                        profit = ((current_price - last_entry_price) / last_entry_price) * 100
+                    elif last_signal == "SELL":
+                        # Đã SELL (short) trước đó, giờ BUY (close short) -> tính profit
+                        profit = ((last_entry_price - current_price) / last_entry_price) * 100
+                
+                # Lưu tín hiệu vào history
+                signal_history.append({
+                    "timestamp": timestamp,
+                    "signal": signal,
+                    "price": current_price,
+                    "profit": round(profit, 2) if profit is not None else None
+                })
+                if len(signal_history) > max_history:
+                    signal_history.pop(0)
+                
+                # Gửi Discord alert
                 send_discord_alert(signal, current_price)
+                
+                # Cập nhật last signal
                 last_signal = signal
+                last_entry_price = current_price
                 bot_status["last_signal"] = signal
 
         except Exception as e:

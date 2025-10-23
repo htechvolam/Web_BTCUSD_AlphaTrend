@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTC/USDT AlphaTrend Bot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .container {
+            max-width: 1400px;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+            transition: transform 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            padding: 15px 20px;
+            font-weight: bold;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        .signal-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            display: inline-block;
+        }
+        .signal-buy {
+            background: #28a745;
+            color: white;
+        }
+        .signal-sell {
+            background: #dc3545;
+            color: white;
+        }
+        .status-running {
+            color: #28a745;
+        }
+        .status-error {
+            color: #dc3545;
+        }
+        .table {
+            background: white;
+        }
+        .profit-positive {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .profit-negative {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        #priceChart {
+            max-height: 400px;
+        }
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="text-center text-white mb-4">
+            <h1 class="display-4 mb-2">
+                <i class="fas fa-chart-line"></i> BTC/USDT AlphaTrend Bot
+            </h1>
+            <p class="lead">Theo dõi tín hiệu giao dịch tự động 24/7</p>
+        </div>
+
+        <!-- Status Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="stat-label">Giá Hiện Tại</div>
+                    <div class="stat-value text-primary" id="currentPrice">-</div>
+                    <small class="text-muted" id="lastUpdate">-</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="stat-label">Tín Hiệu</div>
+                    <div class="stat-value" id="currentSignal">
+                        <span class="signal-badge signal-buy">-</span>
+                    </div>
+                    <small class="text-muted">Tín hiệu hiện tại</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="stat-label">Tổng Tín Hiệu</div>
+                    <div class="stat-value text-info" id="totalSignals">0</div>
+                    <small class="text-muted">Số tín hiệu đã phát</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="stat-label">Lợi Nhuận Ước Tính</div>
+                    <div class="stat-value" id="estimatedProfit">-</div>
+                    <small class="text-muted">Nếu đánh theo bot</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-area"></i> Biểu Đồ Giá BTC/USDT
+            </div>
+            <div class="card-body">
+                <canvas id="priceChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-chart-bar"></i> Thống Kê
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr>
+                                    <td><strong>Symbol:</strong></td>
+                                    <td id="statsSymbol">-</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Khung thời gian:</strong></td>
+                                    <td id="statsInterval">-</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Trạng thái bot:</strong></td>
+                                    <td id="statsStatus">-</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Tín hiệu BUY:</strong></td>
+                                    <td id="statsBuyCount">0</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Tín hiệu SELL:</strong></td>
+                                    <td id="statsSellCount">0</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Win Rate:</strong></td>
+                                    <td id="statsWinRate">-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Signal History -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-history"></i> Lịch Sử Tín Hiệu (10 gần nhất)
+                    </div>
+                    <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Thời gian</th>
+                                    <th>Tín hiệu</th>
+                                    <th>Giá</th>
+                                    <th>P/L %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="signalHistoryTable">
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">Chưa có dữ liệu</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Refresh Button -->
+    <button class="btn btn-primary btn-lg rounded-circle refresh-btn" onclick="loadData()" title="Làm mới dữ liệu">
+        <i class="fas fa-sync-alt"></i>
+    </button>
+
+    <script>
+        let priceChart;
+
+        // Load data from API
+        async function loadData() {
+            try {
+                // Get status
+                const statusRes = await fetch('/api/status');
+                const status = await statusRes.json();
+                
+                // Get history
+                const historyRes = await fetch('/api/history');
+                const history = await historyRes.json();
+                
+                // Get chart data
+                const chartRes = await fetch('/api/chart');
+                const chartData = await chartRes.json();
+
+                // Update status cards
+                document.getElementById('currentPrice').textContent = 
+                    status.current_price ? `$${status.current_price.toLocaleString('en-US', {minimumFractionDigits: 2})}` : '-';
+                
+                document.getElementById('lastUpdate').textContent = 
+                    status.last_check || '-';
+                
+                const signalBadge = document.getElementById('currentSignal').querySelector('.signal-badge');
+                if (status.last_signal) {
+                    signalBadge.textContent = status.last_signal;
+                    signalBadge.className = `signal-badge signal-${status.last_signal.toLowerCase()}`;
+                }
+                
+                document.getElementById('totalSignals').textContent = history.signals.length;
+                
+                // Calculate estimated profit
+                const stats = calculateStats(history.signals);
+                const profitElem = document.getElementById('estimatedProfit');
+                if (stats.totalProfit !== null) {
+                    profitElem.textContent = `${stats.totalProfit > 0 ? '+' : ''}${stats.totalProfit.toFixed(2)}%`;
+                    profitElem.className = `stat-value ${stats.totalProfit >= 0 ? 'profit-positive' : 'profit-negative'}`;
+                } else {
+                    profitElem.textContent = '-';
+                    profitElem.className = 'stat-value text-muted';
+                }
+
+                // Update statistics
+                document.getElementById('statsSymbol').textContent = status.symbol || '-';
+                document.getElementById('statsInterval').textContent = status.interval || '-';
+                
+                const statusElem = document.getElementById('statsStatus');
+                statusElem.innerHTML = `<span class="status-${status.status === 'running' ? 'running' : 'error'}">${status.status}</span>`;
+                
+                document.getElementById('statsBuyCount').textContent = stats.buyCount;
+                document.getElementById('statsSellCount').textContent = stats.sellCount;
+                document.getElementById('statsWinRate').textContent = 
+                    stats.winRate !== null ? `${stats.winRate.toFixed(1)}%` : '-';
+
+                // Update signal history table
+                updateSignalTable(history.signals.slice(-10).reverse());
+
+                // Update chart
+                updateChart(chartData);
+
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        }
+
+        function calculateStats(signals) {
+            let buyCount = 0;
+            let sellCount = 0;
+            let totalProfit = 0;
+            let wins = 0;
+            let trades = 0;
+
+            for (let i = 0; i < signals.length; i++) {
+                if (signals[i].signal === 'BUY') buyCount++;
+                if (signals[i].signal === 'SELL') sellCount++;
+                
+                if (signals[i].profit !== null) {
+                    totalProfit += signals[i].profit;
+                    if (signals[i].profit > 0) wins++;
+                    trades++;
+                }
+            }
+
+            return {
+                buyCount,
+                sellCount,
+                totalProfit: trades > 0 ? totalProfit : null,
+                winRate: trades > 0 ? (wins / trades) * 100 : null
+            };
+        }
+
+        function updateSignalTable(signals) {
+            const tbody = document.getElementById('signalHistoryTable');
+            
+            if (signals.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Chưa có dữ liệu</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = signals.map(s => `
+                <tr>
+                    <td>${s.timestamp}</td>
+                    <td><span class="signal-badge signal-${s.signal.toLowerCase()}">${s.signal}</span></td>
+                    <td>$${s.price.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                    <td class="${s.profit !== null ? (s.profit >= 0 ? 'profit-positive' : 'profit-negative') : ''}">${
+                        s.profit !== null ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}%` : '-'
+                    }</td>
+                </tr>
+            `).join('');
+        }
+
+        function updateChart(data) {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            
+            if (priceChart) {
+                priceChart.destroy();
+            }
+
+            priceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'BTC/USDT Price',
+                        data: data.prices,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Auto refresh every 30 seconds
+        setInterval(loadData, 30000);
+        
+        // Initial load
+        loadData();
+    </script>
+</body>
+</html>
