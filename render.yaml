@@ -1,0 +1,21 @@
+services:
+  - type: worker
+    name: btcusd-alphatrend-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DISCORD_WEBHOOK_URL
+        sync: false  # Bạn sẽ thêm giá trị này trên Render Dashboard
+      - key: SYMBOL
+        value: BTCUSDT
+      - key: INTERVAL
+        value: 15m
+      - key: CHECK_INTERVAL
+        value: 60
+      - key: ALPHA_LENGTH
+        value: 14
+      - key: SMOOTH
+        value: 1
