@@ -130,6 +130,108 @@ def api_chart():
         "prices": prices
     })
 
+@app.route('/api/backtest')
+def api_backtest():
+    from flask import request
+    
+    # Lấy tham số từ query string
+    days = request.args.get('days', default=7, type=int)
+    
+    try:
+        # Tính số nến cần lấy (mỗi nến 15 phút, 96 nến/ngày)
+        limit = min(days * 96, 1000)  # Giới hạn tối đa 1000 nến
+        
+        # Lấy dữ liệu lịch sử
+        data = get_binance_data(SYMBOL, INTERVAL, limit=limit)
+        data = alpha_trend(data, ALPHA_LENGTH, SMOOTH)
+        
+        # Chạy backtest
+        results = run_backtest(data)
+        
+        return jsonify({
+            "success": True,
+            "period": f"{days} days",
+            "total_candles": len(data['close']),
+            **results
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+def run_backtest(data):
+    """
+    Chạy backtest trên dữ liệu lịch sử
+    """
+    closes = data['close']
+    trends = data['trend']
+    
+    trades = []
+    current_position = None  # None, 'BUY', 'SELL'
+    entry_price = None
+    total_profit = 0
+    wins = 0
+    losses = 0
+    
+    for i in range(1, len(closes)):
+        current_trend = trends[i]
+        prev_trend = trends[i-1]
+        price = closes[i]
+        
+        # Phát hiện thay đổi tín hiệu
+        if current_trend != prev_trend and current_trend != 0:
+            signal = "BUY" if current_trend == 1 else "SELL"
+            
+            # Đóng position cũ và tính profit
+            if current_position and entry_price:
+                if current_position == "BUY":
+                    # Long position
+                    profit_pct = ((price - entry_price) / entry_price) * 100
+                elif current_position == "SELL":
+                    # Short position
+                    profit_pct = ((entry_price - price) / entry_price) * 100
+                
+                total_profit += profit_pct
+                
+                if profit_pct > 0:
+                    wins += 1
+                else:
+                    losses += 1
+                
+                trades.append({
+                    "entry_signal": current_position,
+                    "entry_price": float(entry_price),
+                    "exit_signal": signal,
+                    "exit_price": float(price),
+                    "profit_pct": round(profit_pct, 2)
+                })
+            
+            # Mở position mới
+            current_position = signal
+            entry_price = price
+    
+    total_trades = len(trades)
+    win_rate = (wins / total_trades * 100) if total_trades > 0 else 0
+    avg_profit = (total_profit / total_trades) if total_trades > 0 else 0
+    
+    # Tìm trade tốt nhất và tệ nhất
+    best_trade = max(trades, key=lambda x: x['profit_pct']) if trades else None
+    worst_trade = min(trades, key=lambda x: x['profit_pct']) if trades else None
+    
+    return {
+        "total_trades": total_trades,
+        "wins": wins,
+        "losses": losses,
+        "win_rate": round(win_rate, 2),
+        "total_profit": round(total_profit, 2),
+        "avg_profit": round(avg_profit, 2),
+        "best_trade": best_trade,
+        "worst_trade": worst_trade,
+        "trades": trades[-20:]  # 20 trades gần nhất
+    }
+
 # ====== BOT LOOP ======
 def run_bot():
     global bot_status, signal_history, price_history

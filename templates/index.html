@@ -143,6 +143,113 @@
             </div>
         </div>
 
+        <!-- Backtest Section -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-flask"></i> Backtest Thuật Toán</span>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-end">
+                    <div class="col-md-3">
+                        <label for="backtestDays" class="form-label">Số ngày backtest:</label>
+                        <select class="form-select" id="backtestDays">
+                            <option value="1">1 ngày</option>
+                            <option value="3">3 ngày</option>
+                            <option value="7" selected>7 ngày</option>
+                            <option value="10">10 ngày</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary w-100" onclick="runBacktest()">
+                            <i class="fas fa-play"></i> Chạy Backtest
+                        </button>
+                    </div>
+                    <div class="col-md-6">
+                        <div id="backtestLoading" class="text-center" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span class="ms-2">Đang chạy backtest...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Backtest Results -->
+                <div id="backtestResults" style="display: none; margin-top: 20px;">
+                    <hr>
+                    <h5 class="mb-3"><i class="fas fa-chart-pie"></i> Kết Quả Backtest</h5>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <div class="text-muted small">Tổng Giao Dịch</div>
+                                <div class="h3 mb-0" id="bt-total-trades">-</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <div class="text-muted small">Win Rate</div>
+                                <div class="h3 mb-0" id="bt-win-rate">-</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <div class="text-muted small">Tổng P/L</div>
+                                <div class="h3 mb-0" id="bt-total-profit">-</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <div class="text-muted small">P/L Trung Bình</div>
+                                <div class="h3 mb-0" id="bt-avg-profit">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-success bg-opacity-10 rounded">
+                                <div class="text-success fw-bold mb-2">
+                                    <i class="fas fa-trophy"></i> Trade Tốt Nhất
+                                </div>
+                                <div id="bt-best-trade">-</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-danger bg-opacity-10 rounded">
+                                <div class="text-danger fw-bold mb-2">
+                                    <i class="fas fa-exclamation-triangle"></i> Trade Tệ Nhất
+                                </div>
+                                <div id="bt-worst-trade">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Trades Table -->
+                    <div class="mt-3">
+                        <h6><i class="fas fa-list"></i> 20 Giao Dịch Gần Nhất</h6>
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm table-hover">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Entry</th>
+                                        <th>Entry Price</th>
+                                        <th>Exit</th>
+                                        <th>Exit Price</th>
+                                        <th>P/L %</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bt-trades-table">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">Chưa có dữ liệu</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Statistics -->
         <div class="row">
             <div class="col-md-6">
@@ -375,6 +482,85 @@
                     }
                 }
             });
+        }
+
+        // Backtest function
+        async function runBacktest() {
+            const days = document.getElementById('backtestDays').value;
+            const loadingDiv = document.getElementById('backtestLoading');
+            const resultsDiv = document.getElementById('backtestResults');
+            
+            // Show loading
+            loadingDiv.style.display = 'block';
+            resultsDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch(`/api/backtest?days=${days}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update statistics
+                    document.getElementById('bt-total-trades').textContent = data.total_trades;
+                    
+                    const winRateElem = document.getElementById('bt-win-rate');
+                    winRateElem.textContent = data.win_rate + '%';
+                    winRateElem.className = 'h3 mb-0 ' + (data.win_rate >= 50 ? 'text-success' : 'text-danger');
+                    
+                    const totalProfitElem = document.getElementById('bt-total-profit');
+                    totalProfitElem.textContent = (data.total_profit > 0 ? '+' : '') + data.total_profit + '%';
+                    totalProfitElem.className = 'h3 mb-0 ' + (data.total_profit >= 0 ? 'text-success' : 'text-danger');
+                    
+                    const avgProfitElem = document.getElementById('bt-avg-profit');
+                    avgProfitElem.textContent = (data.avg_profit > 0 ? '+' : '') + data.avg_profit + '%';
+                    avgProfitElem.className = 'h3 mb-0 ' + (data.avg_profit >= 0 ? 'text-success' : 'text-danger');
+                    
+                    // Update best/worst trades
+                    if (data.best_trade) {
+                        document.getElementById('bt-best-trade').innerHTML = `
+                            <div><strong>${data.best_trade.entry_signal}</strong> @ $${data.best_trade.entry_price.toLocaleString()} 
+                            → <strong>${data.best_trade.exit_signal}</strong> @ $${data.best_trade.exit_price.toLocaleString()}</div>
+                            <div class="text-success fw-bold">+${data.best_trade.profit_pct}%</div>
+                        `;
+                    }
+                    
+                    if (data.worst_trade) {
+                        document.getElementById('bt-worst-trade').innerHTML = `
+                            <div><strong>${data.worst_trade.entry_signal}</strong> @ $${data.worst_trade.entry_price.toLocaleString()} 
+                            → <strong>${data.worst_trade.exit_signal}</strong> @ $${data.worst_trade.exit_price.toLocaleString()}</div>
+                            <div class="text-danger fw-bold">${data.worst_trade.profit_pct}%</div>
+                        `;
+                    }
+                    
+                    // Update trades table
+                    const tbody = document.getElementById('bt-trades-table');
+                    if (data.trades.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Không có giao dịch nào</td></tr>';
+                    } else {
+                        tbody.innerHTML = data.trades.map(t => `
+                            <tr>
+                                <td><span class="signal-badge signal-${t.entry_signal.toLowerCase()}">${t.entry_signal}</span></td>
+                                <td>$${t.entry_price.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                <td><span class="signal-badge signal-${t.exit_signal.toLowerCase()}">${t.exit_signal}</span></td>
+                                <td>$${t.exit_price.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                                <td class="${t.profit_pct >= 0 ? 'profit-positive' : 'profit-negative'}">
+                                    ${t.profit_pct > 0 ? '+' : ''}${t.profit_pct}%
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+                    
+                    // Show results
+                    resultsDiv.style.display = 'block';
+                } else {
+                    alert('Lỗi: ' + data.error);
+                }
+                
+            } catch (error) {
+                console.error('Error running backtest:', error);
+                alert('Có lỗi xảy ra khi chạy backtest');
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
         }
 
         // Auto refresh every 30 seconds

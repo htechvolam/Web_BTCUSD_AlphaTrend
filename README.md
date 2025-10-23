@@ -50,6 +50,12 @@ Bot tự động theo dõi tín hiệu AlphaTrend cho BTC/USDT và gửi thông 
   - 📜 **Lịch sử tín hiệu** với P/L từng lệnh
   - 🔄 **Auto-refresh** mỗi 30 giây
   - 📱 **Responsive design** - đẹp trên mọi thiết bị
+- ✅ **🧪 Backtest thuật toán**:
+  - Chọn khoảng thời gian (1, 3, 7, 10 ngày)
+  - Hiển thị Win Rate, tổng P/L, P/L trung bình
+  - Xem trade tốt nhất và tệ nhất
+  - Danh sách 20 giao dịch gần nhất với chi tiết P/L
+  - Kiểm tra hiệu quả chiến lược trước khi trade thật
 
 ## 🌐 Web Interface & API
 
@@ -104,6 +110,36 @@ Bot tự động theo dõi tín hiệu AlphaTrend cho BTC/USDT và gửi thông 
   {
     "labels": ["2025-10-23 15:00:00", "2025-10-23 15:01:00", ...],
     "prices": [109500.00, 109520.00, ...]
+  }
+  ```
+
+- **`GET /api/backtest?days=7`** - Chạy backtest thuật toán
+  ```json
+  {
+    "success": true,
+    "period": "7 days",
+    "total_candles": 672,
+    "total_trades": 15,
+    "wins": 9,
+    "losses": 6,
+    "win_rate": 60.0,
+    "total_profit": 5.23,
+    "avg_profit": 0.35,
+    "best_trade": {
+      "entry_signal": "BUY",
+      "entry_price": 108500.00,
+      "exit_signal": "SELL",
+      "exit_price": 110200.00,
+      "profit_pct": 1.57
+    },
+    "worst_trade": {
+      "entry_signal": "SELL",
+      "entry_price": 109000.00,
+      "exit_signal": "BUY",
+      "exit_price": 109800.00,
+      "profit_pct": -0.73
+    },
+    "trades": [...]
   }
   ```
 
