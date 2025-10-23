@@ -3,6 +3,8 @@ import requests
 import numpy as np
 import os
 from datetime import datetime
+from flask import Flask, jsonify
+from threading import Thread
 
 # ====== CONFIG ======
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/xxxxxx/xxxxx")
@@ -11,6 +13,16 @@ INTERVAL = os.getenv("INTERVAL", "15m")
 CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "60"))
 ALPHA_LENGTH = int(os.getenv("ALPHA_LENGTH", "14"))
 SMOOTH = int(os.getenv("SMOOTH", "1"))
+PORT = int(os.getenv("PORT", "10000"))
+
+# ====== FLASK APP ======
+app = Flask(__name__)
+bot_status = {
+    "status": "starting",
+    "last_check": None,
+    "last_signal": None,
+    "current_price": None
+}
 
 # ====== LẤY DỮ LIỆU TỪ BINANCE ======
 def get_binance_data(symbol="BTCUSDT", interval="15m", limit=500):
@@ -74,14 +86,39 @@ def send_discord_alert(signal_type, price):
     except Exception as e:
         print("Error sending Discord alert:", e)
 
-# ====== MAIN LOOP ======
-def main():
+# ====== FLASK ROUTES ======
+@app.route('/')
+def home():
+    return jsonify({
+        "name": "BTC/USDT AlphaTrend Bot",
+        "status": bot_status["status"],
+        "symbol": SYMBOL,
+        "interval": INTERVAL,
+        "last_check": bot_status["last_check"],
+        "last_signal": bot_status["last_signal"],
+        "current_price": bot_status["current_price"]
+    })
+
+@app.route('/health')
+def health():
+    return jsonify({"status": "ok"}), 200
+
+@app.route('/status')
+def status():
+    return jsonify(bot_status)
+
+# ====== BOT LOOP ======
+def run_bot():
+    global bot_status
     last_signal = None
+    
     print(f"🚀 Bot AlphaTrend đã khởi động!")
     print(f"📈 Symbol: {SYMBOL}")
     print(f"⏱️  Interval: {INTERVAL}")
     print(f"🔄 Kiểm tra mỗi: {CHECK_INTERVAL}s")
     print("-" * 50)
+    
+    bot_status["status"] = "running"
 
     while True:
         try:
@@ -95,17 +132,31 @@ def main():
             
             signal = "BUY" if current_trend == 1 else "SELL" if current_trend == -1 else None
             
+            # Cập nhật status
+            bot_status["last_check"] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            bot_status["current_price"] = float(current_price)
+            bot_status["status"] = "running"
+            
             print(f"📊 Giá hiện tại: ${current_price:,.2f} | Tín hiệu: {signal}")
 
             if signal and signal != last_signal:
                 print(f"🔔 Phát hiện tín hiệu mới: {signal}")
                 send_discord_alert(signal, current_price)
                 last_signal = signal
+                bot_status["last_signal"] = signal
 
         except Exception as e:
-            print(f"❌ Error in main loop: {e}")
+            print(f"❌ Error in bot loop: {e}")
+            bot_status["status"] = f"error: {str(e)}"
 
         time.sleep(CHECK_INTERVAL)
 
+# ====== MAIN ======
 if __name__ == "__main__":
-    main()
+    # Chạy bot trong background thread
+    bot_thread = Thread(target=run_bot, daemon=True)
+    bot_thread.start()
+    
+    # Chạy Flask server
+    print(f"🌐 Starting web server on port {PORT}")
+    app.run(host='0.0.0.0', port=PORT)

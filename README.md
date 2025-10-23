@@ -9,15 +9,17 @@ Bot tự động theo dõi tín hiệu AlphaTrend cho BTC/USDT và gửi thông 
 2. Chọn channel → Settings → Integrations → Webhooks
 3. Click "New Webhook" → Copy webhook URL
 
-### 2. Deploy trên Render
+### 2. Deploy trên Render (FREE)
 1. Truy cập [render.com](https://render.com) và đăng nhập
-2. Click **"New +"** → chọn **"Background Worker"**
+2. Click **"New +"** → chọn **"Web Service"**
 3. Kết nối với GitHub repository: `htechvolam/Web_BTCUSD_AlphaTrend`
-4. Render sẽ tự động phát hiện file `render.yaml`
+4. Render sẽ tự động phát hiện file `render.yaml` và chọn **Free plan**
 5. **Quan trọng**: Thêm environment variable `DISCORD_WEBHOOK_URL`:
    - Trong trang tạo service, scroll xuống phần **Environment Variables**
    - Tìm `DISCORD_WEBHOOK_URL` và paste webhook URL của bạn vào
-6. Click **"Create Background Worker"**
+6. Click **"Create Web Service"**
+7. Service sẽ có URL dạng: `https://btcusd-alphatrend-bot.onrender.com`
+8. Truy cập URL để xem trạng thái bot
 
 ### 3. Environment Variables
 
@@ -39,8 +41,41 @@ Bot tự động theo dõi tín hiệu AlphaTrend cho BTC/USDT và gửi thông 
 ## 📊 Tính năng
 - ✅ Theo dõi tín hiệu AlphaTrend trên khung 15 phút
 - ✅ Gửi thông báo Discord khi có tín hiệu BUY/SELL
-- ✅ Chạy 24/7 trên Render (miễn phí)
+- ✅ Chạy 24/7 trên Render Free tier
 - ✅ Tránh spam - chỉ thông báo khi tín hiệu thay đổi
+- ✅ Web interface để kiểm tra trạng thái
+
+## 🌐 API Endpoints
+
+Sau khi deploy, bạn có thể truy cập các endpoint sau:
+
+- **`GET /`** - Trang chủ với thông tin bot và trạng thái hiện tại
+  ```json
+  {
+    "name": "BTC/USDT AlphaTrend Bot",
+    "status": "running",
+    "symbol": "BTCUSDT",
+    "interval": "15m",
+    "last_check": "2025-10-23 15:30:00",
+    "last_signal": "BUY",
+    "current_price": 109699.62
+  }
+  ```
+
+- **`GET /health`** - Health check endpoint
+  ```json
+  {"status": "ok"}
+  ```
+
+- **`GET /status`** - Chi tiết trạng thái bot
+  ```json
+  {
+    "status": "running",
+    "last_check": "2025-10-23 15:30:00",
+    "last_signal": "BUY",
+    "current_price": 109699.62
+  }
+  ```
 
 ## 🛠️ Chạy local
 
